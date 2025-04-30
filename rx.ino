@@ -7,21 +7,27 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include<math.h> 
-
-float pitch_kp=0.5,pitch_ki=0.04,pitch_kd=0.0,set =0.0,yaw_set=0;
-float roll_kp=0.5,roll_ki=0.04,roll_kd=0.0;
-float yaw_kp=0.0,yaw_ki=0.0,yaw_kd=0.0;
-float pitch_angle2=0.0;
-float roll_angle2 =0.0;
-float yaw_angle2 =0.0;
-int c1,c2,c3;
-float C1,C2,C3;
-int low_bat;
+unsigned long time_pres,time_prev;
 double pitch_p,pitch_i,pitch_d;
 double yaw_p,yaw_i,yaw_d;
 double roll_p,roll_i,roll_d;
 double yaw_pid,roll_pid,pitch_pid;
-unsigned long time_pres,time_prev;
+float gx,gy,gz,ax,ay,az,mx,my;
+float gx_e,gy_e,gz_e,ax_e,ay_e,az_e;
+float p_angle=0.0,r_angle=0.0,y_angle=0.0,pitch_angle=0.0,roll_angle=0.0,yaw_angle=0.0;
+
+float pitch_kp=0.5,pitch_ki=0.04,pitch_kd=0.0,set =0.0,yaw_set=0;
+float roll_kp=0.5,roll_ki=0.04,roll_kd=0.0;
+float yaw_kp=0.0,yaw_ki=0.0,yaw_kd=0.0;
+
+float pitch_angle2=0.0;
+float roll_angle2 =0.0;
+float yaw_angle2 =0.0;
+float C1,C2,C3;
+int c1,c2,c3;
+int low_bat;
+int th1,th2,th3,th4;
+
 String vbat;
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
 float dec = -0.58333;
@@ -60,6 +66,18 @@ void check(){
   delay(200);
   m4.writeMicroseconds(1000);
 }
+
+void calibrate(){
+  sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    gx_e = g.gyro.x/131;
+    gy_e = g.gyro.y/131;
+    gz_e = g.gyro.z/131;
+    ax_e =a.acceleration.x/8192;
+    ay_e = a.acceleration.y/8192;
+    az_e =a.acceleration.z/8192;
+}
+
 void setup() {
   delay(100);
   radio.begin();
@@ -97,8 +115,9 @@ void setup() {
   stop();
   Serial.begin(9600);
   //check motors
-  check();
-  delay(1000);
+  //check();
+  delay(100);
+  calibrate();
 }
 
 void loop() {
@@ -162,32 +181,33 @@ void loop() {
     //sensor reading
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-    float gx = g.gyro.x/131;
-    float gy = g.gyro.y/131;
-    float gz = g.gyro.z/131;
-    float ax =a.acceleration.x/8192 ;
-    float ay = a.acceleration.y/8192 ;
-    float az =a.acceleration.z/8192 ;
+    gx = (g.gyro.x/131)-gx_e;
+    gy = (g.gyro.y/131)-gy_e;
+    gz = (g.gyro.z/131)-gz_e;
+    ax = (a.acceleration.x/8192)-ax_e;
+    ay = (a.acceleration.y/8192)-ay_e;
+    az = (a.acceleration.z/8192)-az_e;
     sensors_event_t event; 
     mag.getEvent(&event);
-    float mx = (event.magnetic.x);
-    float my = (event.magnetic.y);
+    mx = (event.magnetic.x);
+    my = (event.magnetic.y);
    
     
     
     //angle calculation
-    float p_angle = atan((-1*ax)/(sqrt(pow(ay,2)+pow(az,2))));
-    float r_angle = atan((ay)/(sqrt(pow(ax,2)+pow(az,2))));
-    float roll_angle =  (r_angle*(180/PI));
-    float pitch_angle = (p_angle*(180/PI));
-    float y_angle = atan2(my,mx);
-    float yaw_angle = y_angle * (180 / PI);
+    p_angle = atan((-1*ax)/(sqrt(pow(ay,2)+pow(az,2))));
+    r_angle = atan((ay)/(sqrt(pow(ax,2)+pow(az,2))));
+    roll_angle =  (r_angle*(180/PI));
+    pitch_angle = (p_angle*(180/PI));
+    y_angle = atan2(my,mx);
+    yaw_angle = y_angle * (180 / PI);
     yaw_angle = yaw_angle-90;
     if(yaw_angle<0){
       yaw_angle+=360;
     }
     yaw_angle+= dec;
-    if(!(isnan(roll_angle) || isnan(pitch_angle) || isnan(yaw_angle))){
+    if(!(isnan(roll_angle) || isnan(pitch_angle) || isnan(yaw_angle))){\
+
     //complementary filter
     time_pres = millis();
     roll_angle = 0.98*(roll_angle+gx*(time_pres-time_prev))+0.02*(roll_angle);
@@ -198,27 +218,27 @@ void loop() {
     pitch_p = (set-pitch_angle);
     pitch_i += ((set-pitch_angle)*(time_pres-time_prev))/1000;
     pitch_d = (((set-pitch_angle2)-(set-pitch_angle))/(time_pres-time_prev))*1000;
-    pitch_pid = pitch_p*pitch_kp+pitch_ki*pitch_i+pitch_d*pitch_kd;
+    pitch_pid = (pitch_p*pitch_kp)+(pitch_i*pitch_ki)+(pitch_d*pitch_kd);
 
     //roll pid
     time_pres = millis();
     roll_p = (set-roll_angle);
     roll_i += ((set-roll_angle)*(time_pres-time_prev))/1000;
     roll_d = (((set-roll_angle2)-(set-roll_angle))/(time_pres-time_prev))*1000;
-    roll_pid = roll_p*roll_kp+roll_ki*roll_i+roll_d*roll_kd;
+    roll_pid = (roll_p*roll_kp)+(roll_i*roll_ki)+(roll_d*roll_kd);
     
     //yaw pid
     time_pres = millis();
     yaw_p = (yaw_set-yaw_angle);
     yaw_i += ((yaw_set-yaw_angle)*(time_pres-time_prev))/1000;
     yaw_d = (((yaw_set-yaw_angle2)-(yaw_set-yaw_angle))/(time_pres-time_prev))*1000;
-    yaw_pid = yaw_p*yaw_kp+yaw_ki*yaw_i+yaw_d*yaw_kd;
-    //
+    yaw_pid = (yaw_p*yaw_kp)+(yaw_i*yaw_ki)+(yaw_d*yaw_kd);
+    
     //speed mapping to motors
-    int th1 = x-pitch_pid+roll_pid+yaw_pid;
-    int th2 = x-pitch_pid-roll_pid-yaw_pid;
-    int th3 = x+pitch_pid-roll_pid+yaw_pid;
-    int th4 = x+pitch_pid+roll_pid-yaw_pid;
+    th1 = x-pitch_pid+roll_pid+yaw_pid;
+    th2 = x-pitch_pid-roll_pid-yaw_pid;
+    th3 = x+pitch_pid-roll_pid+yaw_pid;
+    th4 = x+pitch_pid+roll_pid-yaw_pid;
     
     if(th1<1000){th1=1000;}else if(th1>2000){th1=2000;} 
     if(th2<1000){th2=1000;}else if(th2>2000){th2=2000;}
@@ -268,9 +288,9 @@ void loop() {
   }
   c1=0;c2=0;c3=0;
   
-  
-  
 }
+  
+
 
  
 
