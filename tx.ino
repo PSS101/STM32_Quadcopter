@@ -9,6 +9,8 @@ U8G2_SSD1306_128X64_NONAME_2_SW_I2C u8g2 (U8G2_R0, A5, A4);
 RF24 radio(7, 8); // CE, CSN
 
 const uint64_t address = 0x5DA871E78AC9AB;
+char buf[32];
+int x,arm;
 
 void setup() {
   radio.begin();
@@ -25,15 +27,15 @@ void setup() {
 }
 
 void loop() {
-  int x = analogRead(A2);
-  int sb = digitalRead(5);
+  x = analogRead(A2);
+  arm = digitalRead(5);
   
-char buf[32];
-  if(sb==1){
+
+  if(arm==1){
   digitalWrite(4,HIGH);
   int throttle = map(x,0,1023,1000,2000);
 
-  String t = String(int((throttle-1000)/100))+"%";
+  //String t = String(int((throttle-1000)/100))+"%";
   itoa(throttle,buf,10);
   }
   else{
