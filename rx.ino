@@ -25,8 +25,8 @@ float roll_angle2 =0.0;
 float yaw_angle2 =0.0;
 float C1,C2,C3;
 int c1,c2,c3;
-int low_bat;
-int th1,th2,th3,th4;
+int low_bat=0;
+int th1,th2,th3,th4,x;
 
 String vbat;
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
@@ -122,6 +122,7 @@ void setup() {
 
 void loop() {
    //check for low battery voltage
+   /*
    analogReadResolution(12);
    for(int i=0;i<10;i++){
    c1 += analogRead(PA_0);
@@ -142,14 +143,15 @@ void loop() {
     else{
       low_bat = 1;
     }
-   }
+   }*/
    
    //check if rf module is connected
    if (radio.available()) {
     
-    char text[32] = "";
-    radio.read(&text, sizeof(text));
-    int x = atoi(text);
+    //char text[32] = "";
+    
+    radio.read(&x, sizeof(x));
+   
     //Serial.println(x);
     if(x<800){
     if(low_bat==0){
@@ -177,7 +179,7 @@ void loop() {
     digitalWrite(PB_5,HIGH);     
     } 
     
-    
+    if(x!=1000){ 
     //sensor reading
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
@@ -206,8 +208,9 @@ void loop() {
       yaw_angle+=360;
     }
     yaw_angle+= dec;
-    if(!(isnan(roll_angle) || isnan(pitch_angle) || isnan(yaw_angle))){\
+    if(!(isnan(roll_angle) || isnan(pitch_angle) || isnan(yaw_angle))){
 
+     
     //complementary filter
     time_pres = millis();
     roll_angle = 0.98*(roll_angle+gx*(time_pres-time_prev))+0.02*(roll_angle);
@@ -244,16 +247,23 @@ void loop() {
     if(th2<1000){th2=1000;}else if(th2>2000){th2=2000;}
     if(th3<1000){th3=1000;}else if(th3>2000){th3=2000;}
     if(th4<1000){th4=1000;}else if(th4>2000){th4=2000;}
- 
+
     m1.writeMicroseconds(th1);
     m2.writeMicroseconds(th2);
     m3.writeMicroseconds(th3);
     m4.writeMicroseconds(th4);
-    
     pitch_angle2 = pitch_angle;
     roll_angle2 = roll_angle;
     yaw_angle2 = yaw_angle;
     time_prev = time_pres;
+
+     }
+     else{
+      stop()    
+     }
+   
+    
+    
     //String o = String(x)+","+String(set)+","+String(roll_angle)+","+String(pitch_angle)+","+String(yaw_angle);
     //String o2 = String(yaw_set)+','+String(roll_pid)+","+String(pitch_pid)+","+String(yaw_pid);
     //Serial.println(o);
@@ -263,6 +273,7 @@ void loop() {
     
     else{
     stop();    
+    
     }
         //delay(100);
 
@@ -286,12 +297,14 @@ void loop() {
     stop();
 
   }
-  c1=0;c2=0;c3=0;
+  Serial.println(time.millis());
+  //c1=0;c2=0;c3=0;
   
 }
   
 
 
+ 
  
 
  
