@@ -37,7 +37,7 @@ Servo m1;
 Servo m2;
 Servo m3;
 Servo m4;
-
+char text[32] = "";
 int t=0;
 const uint64_t address = 0x5DA871E78AC9AB;
 //const byte address[6] = "00001";
@@ -148,10 +148,10 @@ void loop() {
    //check if rf module is connected
    if (radio.available()) {
     
-    //char text[32] = "";
+    //
     
-    radio.read(&x, sizeof(x));
-   
+    radio.read(&text, sizeof(text));
+    x = atoi(text);
     //Serial.println(x);
     if(x<800){
     if(low_bat==0){
@@ -259,7 +259,7 @@ void loop() {
 
      }
      else{
-      stop()    
+      stop()    ;
      }
    
     
@@ -297,14 +297,11 @@ void loop() {
     stop();
 
   }
-  Serial.println(time.millis());
+  
   //c1=0;c2=0;c3=0;
   
 }
   
 
-
- 
- 
 
  
