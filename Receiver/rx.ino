@@ -7,7 +7,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include<math.h> 
-#define min_throttle 1130
+#define min_throttle 1000
 #define max_throttle 2000
 #define dec  -0.516667
 
@@ -20,8 +20,8 @@ float gx,gy,gz,ax,ay,az,mx,my;
 float gx_e=0.0,gy_e=0.0,gz_e=0.0,ax_e=0.0,ay_e=0.0,az_e=0.0;
 float p_angle=0.0,r_angle=0.0,y_angle=0.0,roll_a,pitch_a,pitch_angle=0.0,roll_angle=0.0,yaw_angle=0.0;
 float pitch_angle_prev=0.0,roll_angle_prev =0.0,yaw_angle_prev =0.0;
-float pitch_kp=0.0,pitch_ki=0.0,pitch_kd=0.0,set =0.0,yaw_set=0;
-float roll_kp=3.5,roll_ki=0.00,roll_kd=0.2;
+float pitch_kp=3.5,pitch_ki=0.0,pitch_kd=0.005,set =0.0,yaw_set=0;
+float roll_kp=3.5,roll_ki=0.00,roll_kd=0.005;
 float yaw_kp=0.0,yaw_ki=0.0,yaw_kd=0.0;
 float dt,C1,C2,C3;
 int c1,c2,c3;
@@ -71,9 +71,6 @@ void check(){
 }
 
 void calibrate(){
-  digitalWrite(PB_9,HIGH);
-  digitalWrite(PB_6,HIGH);
-  digitalWrite(PB_5,LOW);
   sensors_event_t a, g, temp;
   for(int i=0;i<2000;i++){
     mpu.getEvent(&a, &g, &temp);
@@ -82,6 +79,9 @@ void calibrate(){
     gz_e += g.gyro.z;
     ax_e +=a.acceleration.x;
     ay_e += a.acceleration.y;
+    digitalWrite(PB_9,HIGH);
+    digitalWrite(PB_6,HIGH);
+    digitalWrite(PB_5,LOW);
     
   }
   gx_e/= 2000;
@@ -92,7 +92,6 @@ void calibrate(){
 }
 
 void setup() {
-  delay(100);
   radio.begin();
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MAX);
@@ -124,13 +123,14 @@ void setup() {
   s_angle-=90;
   if(s_angle<0){s_angle+=360;}
   yaw_set = ((int)(s_angle/90))*90;
-
+  delay(1000);
   stop();
-  Serial.begin(115200);
+  //Serial.begin(115200);
   //check motors
+  calibrate();
+  delay(100);
   check();
   delay(100);
-  calibrate();
 }
 
 void loop() {
@@ -289,10 +289,10 @@ void loop() {
      
        
     //String o = String(x)+", "+String(roll_angle)+", "+String(th1)+", "+String(th2)+", "+String(th3)+", "+String(th4);
-    String o2 = String(roll_angle)+","+String(set);
+    //String o2 = String(roll_angle)+","+String(set);
     //Serial.println(o);
 
-    Serial.println(o2);
+    //Serial.println(o2);
   
     }
     
