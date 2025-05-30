@@ -6,7 +6,7 @@
 
 ## !!! Analog inputs of stm32 blackpill only support 3.3v
 
-#ESC Calibration 
+# ESC Calibration 
 - Connect the stm32 and upoload the esc_calib sketch and disconnect lipo
 - Wait for the text ESC Calibration to show up on the Serial monitor
 - Connect Lipo and wait for ESC to calibrate
