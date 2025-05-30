@@ -12,4 +12,4 @@
 - Connect the stm32 and upoload the esc_calib sketch and disconnect lipo
 - Wait for the text ESC Calibration to show up on the Serial monitor
 - Connect Lipo and wait for ESC to calibrate
-- test escs using serial monitor
+- test ESC's using serial monitor
