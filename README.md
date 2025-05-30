@@ -13,3 +13,4 @@
 - Wait for the text ESC Calibration to show up on the Serial monitor
 - Connect Lipo and wait for ESC to calibrate
 - test ESC's using serial monitor
+![image](https://github.com/user-attachments/assets/98a7e2ea-6e5a-4d46-8597-1a9fa1d83a6c)
