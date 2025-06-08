@@ -20,9 +20,13 @@ float gx,gy,gz,ax,ay,az,mx,my;
 float gx_e=0.0,gy_e=0.0,gz_e=0.0,ax_e=0.0,ay_e=0.0,az_e=0.0;
 float p_angle=0.0,r_angle=0.0,y_angle=0.0,roll_a,pitch_a,pitch_angle=0.0,roll_angle=0.0,yaw_angle=0.0;
 float pitch_angle_prev=0.0,roll_angle_prev =0.0,yaw_angle_prev =0.0;
-float pitch_kp=3.5,pitch_ki=0.0,pitch_kd=0.005,set =0.0,yaw_set=0;
-float roll_kp=3.5,roll_ki=0.00,roll_kd=0.005;
+float pitch_kp=0.0,pitch_ki=0.0,pitch_kd=0.0,set =0.0,yaw_set=0;
+float roll_kp=3.5,roll_ki=0.0,roll_kd=0.5;
 float yaw_kp=0.0,yaw_ki=0.0,yaw_kd=0.0;
+
+float roll_kalman,roll_kalman_prev,roll_uncertainity,roll_uncertainity_prev,roll_kalman_gain;
+float pitch_kalman,pitch_kalman_prev,pitch_uncertainity,pitch_uncertainity_prev,pitch_kalman_gain;
+
 float dt,C1,C2,C3;
 int c1,c2,c3;
 int low_bat=0;
@@ -92,14 +96,16 @@ void calibrate(){
 }
 
 void setup() {
+  stop();
   radio.begin();
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MAX);
   radio.startListening();
-  m1.attach(PB_1);
-  m2.attach(PB_0);
-  m3.attach(PA_2);
-  m4.attach(PA_1);
+  m1.attach(PB_1,1000,2000,1000);
+  m2.attach(PB_0,1000,2000,1000);
+  m3.attach(PA_2,1000,2000,1000);
+  m4.attach(PA_1,1000,2000,1000);
+  stop();
   pinMode(PB_6,OUTPUT);
   pinMode(PB_5,OUTPUT);
   pinMode(PB_9,OUTPUT);
@@ -124,12 +130,11 @@ void setup() {
   if(s_angle<0){s_angle+=360;}
   yaw_set = ((int)(s_angle/90))*90;
   delay(1000);
-  stop();
   //Serial.begin(115200);
   //check motors
   calibrate();
   delay(100);
-  check();
+  //check();
   delay(100);
 }
 
@@ -212,7 +217,6 @@ void loop() {
     ax = (a.acceleration.x)-ax_e;
     ay = (a.acceleration.y)-ay_e;
     az = (a.acceleration.z);
-    sensors_event_t event; 
     mag.getEvent(&event);
     mx = (event.magnetic.x);
     my = (event.magnetic.y);
@@ -242,38 +246,56 @@ void loop() {
     dt = ((float)(time_pres-time_prev))/1000000.0;
     if(dt<0.000001){dt=0.000001;}
 
- //complementary filter
-    roll_angle = 0.98*(roll_angle+(gx*dt))+0.02*(roll_a);
-    pitch_angle = 0.98*(pitch_angle+(gy*dt))+0.02*(pitch_a);
-    
+    //roll 1D kalman filter
+    roll_kalman = roll_kalman_prev+dt*gx;
+    roll_uncertainity = roll_uncertainity_prev+(dt*dt)*(4*4);
+    roll_kalman_gain = roll_uncertainity/(roll_uncertainity+(1.5*1.5));
+    roll_kalman = roll_kalman+roll_kalman_gain*(roll_a-roll_kalman);
+    roll_uncertainity = (1-roll_kalman_gain)*roll_uncertainity;
+    roll_angle = roll_kalman;
+    roll_kalman_prev = roll_kalman;
+    roll_uncertainity_prev = roll_uncertainity;
+
+    //pitch 1D kalman filter
+    pitch_kalman = pitch_kalman_prev+dt*gx;
+    pitch_uncertainity = pitch_uncertainity_prev+(dt*dt)*(4*4);
+    pitch_kalman_gain = pitch_uncertainity/(pitch_uncertainity+(1.5*1.5));
+    pitch_kalman = pitch_kalman+pitch_kalman_gain*(pitch_a-pitch_kalman);
+    pitch_uncertainity = (1-pitch_kalman_gain)*pitch_uncertainity;
+    pitch_angle = pitch_kalman;
+    pitch_kalman_prev = pitch_kalman;
+    pitch_uncertainity_prev = pitch_uncertainity;
+
     //pitch pid
     pitch_p = (set-pitch_angle);
     pitch_i += (set-pitch_angle)*dt;
     pitch_d = ((set-pitch_angle_prev)-(set-pitch_angle))/dt;
     pitch_pid = (pitch_p*pitch_kp)+(pitch_i*pitch_ki)+(pitch_d*pitch_kd);
+    pitch_pid = constrain(pitch_pid,-100,100);
 
     //roll pid
     roll_p = (set-roll_angle);
     roll_i += (set-roll_angle)*dt;
     roll_d = ((set-roll_angle_prev)-(set-roll_angle))/dt;
     roll_pid = (roll_p*roll_kp)+(roll_i*roll_ki)+(roll_d*roll_kd);
-    
+    roll_pid = constrain(roll_pid,-200,200);
+
     //yaw pid
     yaw_p = (yaw_set-yaw_angle);
     yaw_i += (yaw_set-yaw_angle)*dt;
     yaw_d = ((yaw_set-yaw_angle_prev)-(yaw_set-yaw_angle))/dt;
     yaw_pid = (yaw_p*yaw_kp)+(yaw_i*yaw_ki)+(yaw_d*yaw_kd);
-    
+    yaw_pid = constrain(yaw_pid,-100,100);
     //speed mapping to motors
-    th1 = th-pitch_pid+roll_pid+yaw_pid+0.5;
-    th2 = th-pitch_pid-roll_pid-yaw_pid+0.5;
-    th3 = th+pitch_pid-roll_pid+yaw_pid+0.5;
-    th4 = th+pitch_pid+roll_pid-yaw_pid+0.5;
+    th1 = th-pitch_pid+roll_pid+yaw_pid;
+    th2 = th-pitch_pid-roll_pid-yaw_pid;
+    th3 = th+pitch_pid-roll_pid+yaw_pid;
+    th4 = th+pitch_pid+roll_pid-yaw_pid;
     
-    th1 = constrain(th1,min_throttle,max_throttle);
-    th2 = constrain(th2,min_throttle,max_throttle);
-    th3 = constrain(th3,min_throttle,max_throttle);
-    th4 = constrain(th4,min_throttle,max_throttle);
+    th1 = constrain(th1,min_throttle,max_throttle)+0.5;
+    th2 = constrain(th2,min_throttle,max_throttle)+0.5;
+    th3 = constrain(th3,min_throttle,max_throttle)+0.5;
+    th4 = constrain(th4,min_throttle,max_throttle)+0.5;
 
     m1.writeMicroseconds(th1);
     m2.writeMicroseconds(th2);
@@ -289,9 +311,7 @@ void loop() {
      
        
     //String o = String(x)+", "+String(roll_angle)+", "+String(th1)+", "+String(th2)+", "+String(th3)+", "+String(th4);
-    //String o2 = String(roll_angle)+","+String(set);
-    //Serial.println(o);
-
+    //String o2 = String(roll_angle)+","+String(set)+","+String(roll_pid)+","+String(th);
     //Serial.println(o2);
   
     }
@@ -321,7 +341,6 @@ void loop() {
   //Serial.println(millis());
 }
   
-
 
  
  
