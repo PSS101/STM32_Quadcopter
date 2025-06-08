@@ -13,7 +13,7 @@ float gx_e,gy_e,gz_e,ax_e,ay_e;
 float mx,my,mz;
 float min_mx,max_mx,min_my,max_my,min_mz,max_mz;
 float x_offset,y_offset,z_offset;
-String input;
+String input="";
 void stop(){
   m1.writeMicroseconds(1000);
   m2.writeMicroseconds(1000);
@@ -30,10 +30,13 @@ void setup() {
   Serial.println("Enter 3 to Calibrate Magnetometer");
   Serial.println("Enter 4 to Exit");
   Serial.println("---------------------------");
-  if(Serial.available()){
+  delay(1000);
+  while(input==""){
+    if(Serial.available()){
       input = Serial.readString();
       input.trim();
       mode = input.toInt();
+    }
   }
   
   switch(mode){
@@ -66,7 +69,7 @@ void setup() {
       
       Serial.println("Calibration completed");
       Serial.println("--------------------");
-      while(inp!=4){
+      while(x>=1000){
         if(Serial.available()){
            m1.writeMicroseconds(x);
            m2.writeMicroseconds(x);
@@ -76,9 +79,7 @@ void setup() {
            Serial.println(x);
           input = Serial.readString();
           input.trim();
-          inp = input.toInt();
-          x = inp>=1000?inp:x;
-          
+          x = input.toInt();       
         }
       }
       break;
@@ -87,9 +88,15 @@ void setup() {
           Serial.println("---------------------------");
           Serial.println("IMU Calibration");
           Serial.println("Place IMU on a flat surface");
-          delay(1000);
           Serial.println("Starting calibration");
+          if (!mpu.begin(0x68)) {
+            Serial.println("Failed to find MPU6050 chip");
+          }
+          mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
+          mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+          mpu.setFilterBandwidth(MPU6050_BAND_94_HZ);
           sensors_event_t a, g, temp;
+          delay(1000);
           for(int i=0;i<10000;i++){
             mpu.getEvent(&a, &g, &temp);
             gx_e += g.gyro.x;
@@ -120,6 +127,7 @@ void setup() {
       case 3:
         delay(1000);
         Serial.println("---------------------------");
+        mag.begin();
         Serial.println("Magnetometer Calibration Starting");
         Serial.println("data points to be collected: 2000");
         Serial.println("Rotate magnetometer in all directions");
@@ -137,7 +145,7 @@ void setup() {
           max_mz = mx>max_mz?mx:max_mz;
           String s = String(mx)+","+String(my)+","+String(mz);
           Serial.println(s);
-          delay(50);
+          delay(10);
         }
         Serial.println("Calibration Completed");
         x_offset = (min_mx+max_mx)/2;
@@ -153,6 +161,7 @@ void setup() {
         Serial.println("Input must be between 1-4");
 
       
+}
 }
 
 void loop() {
