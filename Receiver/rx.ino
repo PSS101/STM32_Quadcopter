@@ -10,7 +10,13 @@
 #define min_throttle 1000
 #define max_throttle 2000
 #define dec  -0.516667
-
+#define gx_offset -0.09
+#define gy_offset 0.01
+#define gz_offset 0.03
+#define ax_offset 0.01
+#define ay_offset 0.23
+#define mx_offset -3.5
+#define my_offset -3.5
 unsigned long time_pres,time_prev;
 double pitch_p,pitch_i,pitch_d;
 double yaw_p,yaw_i,yaw_d;
@@ -18,6 +24,8 @@ double roll_p,roll_i,roll_d;
 double yaw_pid,roll_pid,pitch_pid;
 float gx,gy,gz,ax,ay,az,mx,my;
 float gx_e=0.0,gy_e=0.0,gz_e=0.0,ax_e=0.0,ay_e=0.0,az_e=0.0;
+
+
 float p_angle=0.0,r_angle=0.0,y_angle=0.0,roll_a,pitch_a,pitch_angle=0.0,roll_angle=0.0,yaw_angle=0.0;
 float pitch_angle_prev=0.0,roll_angle_prev =0.0,yaw_angle_prev =0.0;
 float pitch_kp=0.0,pitch_ki=0.0,pitch_kd=0.0,set =0.0,yaw_set=0;
@@ -78,11 +86,11 @@ void calibrate(){
   sensors_event_t a, g, temp;
   for(int i=0;i<2000;i++){
     mpu.getEvent(&a, &g, &temp);
-    gx_e += g.gyro.x;
-    gy_e += g.gyro.y;
-    gz_e += g.gyro.z;
-    ax_e +=a.acceleration.x;
-    ay_e += a.acceleration.y;
+    gx_e += g.gyro.x-gx_offset;
+    gy_e += g.gyro.y-gy_offset;
+    gz_e += g.gyro.z-gz_offset;
+    ax_e +=a.acceleration.x-ax_offset;
+    ay_e += a.acceleration.y-ay_offset;
     digitalWrite(PB_9,HIGH);
     digitalWrite(PB_6,HIGH);
     digitalWrite(PB_5,LOW);
@@ -93,6 +101,11 @@ void calibrate(){
   gz_e/= 2000;
   ax_e/= 2000;
   ay_e/= 2000;
+  gx_e+=gx_offset;
+  gy_e+=gy_offset;
+  gz_e+=gy_offset;
+  ax_e+=ax_offset;
+  ay_e+=ay_offset;
 }
 
 void setup() {
@@ -218,8 +231,8 @@ void loop() {
     ay = (a.acceleration.y)-ay_e;
     az = (a.acceleration.z);
     mag.getEvent(&event);
-    mx = (event.magnetic.x);
-    my = (event.magnetic.y);
+    mx = (event.magnetic.x)-mx_offset;
+    my = (event.magnetic.y)-my_offset;
    
     
     
@@ -230,7 +243,6 @@ void loop() {
     pitch_a= (p_angle*(180/PI));
     y_angle = atan2(my,mx);
     yaw_angle = y_angle * (180 / PI);
-    yaw_angle = yaw_angle-90;
     if(yaw_angle<0){
       yaw_angle+=360;
     }
@@ -312,7 +324,8 @@ void loop() {
        
     //String o = String(x)+", "+String(roll_angle)+", "+String(th1)+", "+String(th2)+", "+String(th3)+", "+String(th4);
     //String o2 = String(roll_angle)+","+String(set)+","+String(roll_pid)+","+String(th);
-    //Serial.println(o2);
+    String o2 = String(roll_angle)+","+String(pitch_angle)+","+String(yaw_angle);
+    Serial.println(o2);
   
     }
     
